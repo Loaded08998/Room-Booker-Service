@@ -17,6 +17,7 @@ import {
   UpdateBookingStatusBody,
 } from "@workspace/api-zod";
 import { logger } from "../lib/logger";
+import { getWhatsAppStatus } from "../services/whatsapp";
 
 const router: IRouter = Router();
 
@@ -272,6 +273,12 @@ router.get("/admin/reservations", requireAdmin, async (req, res): Promise<void> 
       };
     })
   );
+});
+
+// ── WhatsApp Status ───────────────────────────────────────────────────────────
+
+router.get("/admin/whatsapp-status", requireAdmin, (req, res): void => {
+  res.json({ connected: getWhatsAppStatus() });
 });
 
 export default router;

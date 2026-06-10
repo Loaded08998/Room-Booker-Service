@@ -1,0 +1,308 @@
+## TASK
+
+Migrate the existing payment system from Stripe to Razorpay, and add WhatsApp booking confirmation messages using whatsapp-web.js. Do not rebuild the project — make targeted changes only.
+
+-----
+
+## PART 1: RAZORPAY MIGRATION
+
+### 1.1 Package Changes
+
+**Backend — uninstall Stripe, install Razorpay:**
+
+```
+pnpm --filter @workspace/api-server remove stripe
+pnpm --filter @workspace/api-server add razorpay
+```
+
+**Frontend — uninstall Stripe, install Razorpay:**
+
+```
+pnpm --filter @workspace/room-booking remove @stripe/react-stripe-js @stripe/stripe-js
+pnpm --filter @workspace/room-booking add react-razorpay
+```
+
+-----
+
+### 1.2 Environment Variables
+
+Remove from Secrets:
+
+- `STRIPE_SECRET_KEY`
+- `STRIPE_PUBLISHABLE_KEY`
+
+Add to Secrets:
+
+- `RAZORPAY_KEY_ID`
+- `RAZORPAY_KEY_SECRET`
+
+Remove from frontend `.env`:
+
+- `VITE_STRIPE_PUBLISHABLE_KEY`
+
+Add to frontend `.env`:
+
+- `VITE_RAZORPAY_KEY_ID`
+
+-----
+
+### 1.3 Backend — Replace Payment Routes
+
+Delete the existing Stripe payment route file and replace it with the following two endpoints:
+
+**POST `/api/payments/create-order`**
+
+- Accepts: `{ booking_id, total_amount }`
+- Creates a Razorpay order:
+  
+  ```js
+  const order = await razorpay.orders.create({
+    amount: Math.round(total_amount * 100), // paise
+    currency: "inr",
+    receipt: String(booking_id),
+  });
+  ```
+- Returns: `{ order_id, amount, currency, key_id: process.env.RAZORPAY_KEY_ID }`
+
+**POST `/api/payments/verify-order`**
+
+- Accepts: `{ razorpay_order_id, razorpay_payment_id, razorpay_signature, booking_id }`
+- Verify signature using HMAC SHA256:
+  
+  ```js
+  const crypto = require("crypto");
+  const body = razorpay_order_id + "|" + razorpay_payment_id;
+  const expected = crypto
+    .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
+    .update(body)
+    .digest("hex");
+  const isValid = expected === razorpay_signature;
+  ```
+- If valid:
+  - Update booking `status` to `'confirmed'` in the database
+  - Trigger WhatsApp confirmation message (see Part 2)
+  - Trigger Resend email confirmation (keep existing email logic)
+  - Return: `{ success: true, booking_id }`
+- If invalid: return `{ success: false }` with status 400
+
+**Remove:**
+
+- `POST /api/payments/create-intent` (Stripe endpoint)
+- Any existing Stripe webhook route
+
+-----
+
+### 1.4 Frontend — Replace Payment UI
+
+In `BookingConfirmPage`:
+
+- Remove all imports of: `@stripe/react-stripe-js`, `@stripe/stripe-js`, `CardElement`, `useStripe`, `useElements`
+- Import `useRazorpay` from `react-razorpay`
+
+Replace the Stripe payment form with this flow:
+
+```
+1. On page load:
+   Call POST /api/payments/create-order
+   Store returned { order_id, amount, currency, key_id } in state
+
+2. On "Pay Now" button click:
+   Open Razorpay checkout modal with:
+   {
+     key: import.meta.env.VITE_RAZORPAY_KEY_ID,
+     order_id: order_id from state,
+     amount: amount from state,
+     currency: "INR",
+     name: "Room Booking Service",
+     description: `Booking #${bookingId}`,
+     handler: async function(response) {
+       // response contains razorpay_order_id, razorpay_payment_id, razorpay_signature
+       const result = await POST /api/payments/verify-order with response + booking_id
+       if (result.success) navigate("/booking/success")
+     },
+     prefill: {
+       name: guestName,
+       contact: guestPhone,
+       email: guestEmail
+     },
+     theme: { color: "#d97706" }  // amber to match existing UI
+   }
+
+3. Display booking summary above the Pay button:
+   - Room numbers, check-in, check-out, total in ₹ format
+   - Use: new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(price)
+```
+
+-----
+
+## PART 2: WHATSAPP-WEB.JS INTEGRATION
+
+### 2.1 Package Installation
+
+```
+pnpm --filter @workspace/api-server add whatsapp-web.js qrcode-terminal
+```
+
+If Puppeteer fails to download Chromium in the Replit sandbox, add this fallback:
+
+```
+pnpm --filter @workspace/api-server add puppeteer-core
+```
+
+And configure the client with:
+
+```js
+puppeteer: {
+  executablePath: '/usr/bin/chromium-browser',
+  args: ['--no-sandbox', '--disable-setuid-sandbox']
+}
+```
+
+-----
+
+### 2.2 Create WhatsApp Service
+
+Create file: `artifacts/api-server/src/services/whatsappService.js`
+
+```js
+const { Client, LocalAuth } = require('whatsapp-web.js');
+const qrcode = require('qrcode-terminal');
+
+let client;
+let isReady = false;
+
+function initWhatsApp() {
+  try {
+    client = new Client({
+      authStrategy: new LocalAuth(),
+      puppeteer: {
+        args: ['--no-sandbox', '--disable-setuid-sandbox'],
+      }
+    });
+
+    client.on('qr', (qr) => {
+      console.log('\n========================================');
+      console.log('SCAN THIS QR CODE IN WHATSAPP:');
+      console.log('========================================\n');
+      qrcode.generate(qr, { small: true });
+    });
+
+    client.on('ready', () => {
+      isReady = true;
+      console.log('WhatsApp client is ready.');
+    });
+
+    client.on('disconnected', () => {
+      isReady = false;
+      console.log('WhatsApp client disconnected.');
+    });
+
+    client.initialize();
+  } catch (err) {
+    console.warn('WhatsApp init failed — skipping:', err.message);
+  }
+}
+
+async function sendBookingConfirmation({ phone, guestName, bookingId, rooms, checkIn, checkOut, totalPrice }) {
+  if (!isReady || !client) {
+    console.warn('WhatsApp not ready — skipping message.');
+    return;
+  }
+  try {
+    // Strip leading 0, prepend India country code
+    const cleaned = phone.replace(/\D/g, '').replace(/^0/, '');
+    const number = `91${cleaned}@c.us`;
+
+    const message =
+      `🏨 *Booking Confirmed!*\n\n` +
+      `Hi ${guestName},\n` +
+      `Your booking has been confirmed.\n\n` +
+      `📋 *Booking ID:* ${bookingId}\n` +
+      `🛏️ *Rooms:* ${rooms.join(', ')}\n` +
+      `📅 *Check-in:* ${checkIn}\n` +
+      `📅 *Check-out:* ${checkOut}\n` +
+      `💰 *Total Paid:* ₹${Number(totalPrice).toLocaleString('en-IN')}\n\n` +
+      `Thank you for your booking!`;
+
+    await client.sendMessage(number, message);
+    console.log(`WhatsApp confirmation sent to ${number}`);
+  } catch (err) {
+    console.warn('WhatsApp send failed — skipping:', err.message);
+  }
+}
+
+function getWhatsAppStatus() {
+  return isReady;
+}
+
+module.exports = { initWhatsApp, sendBookingConfirmation, getWhatsAppStatus };
+```
+
+-----
+
+### 2.3 Initialize on Server Start
+
+In the main server entry file (index.js or app.js), add:
+
+```js
+const { initWhatsApp } = require('./services/whatsappService');
+initWhatsApp();
+```
+
+Call this after the Express app is set up but before `app.listen()`.
+
+-----
+
+### 2.4 Trigger Message After Payment
+
+In the `POST /api/payments/verify-order` route, after confirming the booking is valid, fetch the booking details from the DB (guest name, phone, room numbers, dates, total) and call:
+
+```js
+const { sendBookingConfirmation } = require('../services/whatsappService');
+
+await sendBookingConfirmation({
+  phone: guest.phone,
+  guestName: guest.guest_name,
+  bookingId: booking.booking_id,
+  rooms: rooms.map(r => `Room ${r.room_number}`),
+  checkIn: booking.check_in_date,
+  checkOut: booking.check_out_date,
+  totalPrice: booking.total_price
+});
+```
+
+Wrap this in a try-catch. A WhatsApp failure must never break or block the booking confirmation response.
+
+-----
+
+### 2.5 Admin Status Endpoint
+
+Add: `GET /api/admin/whatsapp-status` (protected, admin JWT required)
+
+```js
+const { getWhatsAppStatus } = require('../services/whatsappService');
+router.get('/whatsapp-status', authMiddleware, (req, res) => {
+  res.json({ connected: getWhatsAppStatus() });
+});
+```
+
+-----
+
+### 2.6 Admin Dashboard UI Update
+
+In `AdminPage`, add a small WhatsApp status badge in the header:
+
+- Fetch `/api/admin/whatsapp-status` on page load
+- If `connected: true` → green dot + “WhatsApp Connected”
+- If `connected: false` → red dot + “WhatsApp Offline — check server logs to scan QR”
+
+-----
+
+## IMPORTANT RULES
+
+1. **Never crash the server** over WhatsApp. Every `whatsapp-web.js` call must be in a try-catch.
+1. **Keep Resend email** — WhatsApp is supplementary, not a replacement. Send both.
+1. **LocalAuth persists the session** to disk so the QR code only needs to be scanned once. Do not use `NoAuth`.
+1. **Phone number format:** strip all non-digits, remove leading 0, prepend `91`, append `@c.us`.
+1. **Currency:** all prices display as INR using `en-IN` locale. Amount sent to Razorpay is always in paise (×100).
+1. **Do not touch** the database schema, seed data, admin login, or any page unrelated to payments.

@@ -1,5 +1,6 @@
 import app from "./app";
 import { logger } from "./lib/logger";
+import { initWhatsApp } from "./services/whatsapp";
 
 const rawPort = process.env["PORT"];
 
@@ -14,6 +15,9 @@ const port = Number(rawPort);
 if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
+
+// Initialize WhatsApp client (non-blocking — fails gracefully if Chromium unavailable)
+initWhatsApp();
 
 app.listen(port, (err) => {
   if (err) {

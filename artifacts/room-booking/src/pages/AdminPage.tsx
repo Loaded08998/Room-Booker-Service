@@ -434,6 +434,7 @@ const TABS: { id: Tab; label: string; desc: string }[] = [
 export default function AdminPage() {
   const [token, setToken] = useState(() => localStorage.getItem("admin_token") ?? "");
   const [activeTab, setActiveTab] = useState<Tab>("bookings");
+  const [waConnected, setWaConnected] = useState<boolean | null>(null);
 
   function handleExpire() {
     localStorage.removeItem("admin_token");
@@ -444,6 +445,16 @@ export default function AdminPage() {
     localStorage.removeItem("admin_token");
     setToken("");
   }
+
+  useEffect(() => {
+    if (!token) return;
+    fetch(`${API_BASE}/admin/whatsapp-status`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (d) setWaConnected(d.connected); })
+      .catch(() => {});
+  }, [token]);
 
   if (!token) {
     return <LoginScreen onLogin={setToken} />;
@@ -458,9 +469,21 @@ export default function AdminPage() {
           <span className="text-stone-600">·</span>
           <h1 className="font-serif font-bold text-lg">Database Viewer</h1>
         </div>
-        <button onClick={handleLogout} className="text-sm text-stone-400 hover:text-white transition-colors">
-          Sign out
-        </button>
+        <div className="flex items-center gap-4">
+          {waConnected !== null && (
+            <span className={`flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full ${
+              waConnected
+                ? "bg-green-900/50 text-green-300"
+                : "bg-stone-800 text-stone-400"
+            }`}>
+              <span className={`w-1.5 h-1.5 rounded-full ${waConnected ? "bg-green-400" : "bg-red-500"}`} />
+              {waConnected ? "WhatsApp Connected" : "WhatsApp Offline — scan QR in server logs"}
+            </span>
+          )}
+          <button onClick={handleLogout} className="text-sm text-stone-400 hover:text-white transition-colors">
+            Sign out
+          </button>
+        </div>
       </div>
 
       {/* Tab bar */}

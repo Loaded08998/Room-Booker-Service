@@ -1,113 +1,113 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useLocation } from "wouter";
-import { loadStripe } from "@stripe/stripe-js";
-import { Elements, CardElement, useStripe, useElements } from "@stripe/react-stripe-js";
-import { useGetBooking, useCreatePaymentIntent } from "@workspace/api-client-react";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import useRazorpay from "react-razorpay";
+import { useGetBooking } from "@workspace/api-client-react";
+import { formatDate } from "@/lib/utils";
 
 function useQuery() {
-  const [location] = useLocation();
-  return new URLSearchParams(location.includes("?") ? location.split("?")[1] : "");
+  return new URLSearchParams(window.location.search);
 }
 
-const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY ?? "");
+interface RazorpayOrder {
+  order_id: string;
+  amount: number;
+  currency: string;
+  key_id: string;
+}
 
-function PaymentForm({ bookingId, clientSecret }: { bookingId: number; clientSecret: string }) {
-  const stripe = useStripe();
-  const elements = useElements();
-  const [, navigate] = useLocation();
-  const [error, setError] = useState("");
-  const [processing, setProcessing] = useState(false);
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!stripe || !elements) return;
-
-    setProcessing(true);
-    setError("");
-
-    const card = elements.getElement(CardElement);
-    if (!card) {
-      setProcessing(false);
-      return;
-    }
-
-    const { error: stripeError, paymentIntent } = await stripe.confirmCardPayment(clientSecret, {
-      payment_method: { card },
-    });
-
-    if (stripeError) {
-      setError(stripeError.message ?? "Payment failed");
-      setProcessing(false);
-      return;
-    }
-
-    if (paymentIntent?.status === "succeeded") {
-      navigate(`/booking/success?bookingId=${bookingId}`);
-    }
-
-    setProcessing(false);
-  }
-
-  return (
-    <form onSubmit={handleSubmit} className="space-y-5">
-      <div>
-        <label className="block text-xs font-semibold text-stone-500 uppercase tracking-wider mb-2">
-          Card Details
-        </label>
-        <div className="border border-stone-200 rounded-lg px-4 py-4 focus-within:ring-2 focus-within:ring-amber-400">
-          <CardElement
-            options={{
-              style: {
-                base: {
-                  fontSize: "15px",
-                  color: "#1c1917",
-                  "::placeholder": { color: "#a8a29e" },
-                },
-              },
-            }}
-          />
-        </div>
-        <p className="text-xs text-stone-400 mt-1.5">Test card: 4242 4242 4242 4242 · Any future date · Any CVC</p>
-      </div>
-
-      {error && (
-        <p className="text-red-500 text-sm bg-red-50 border border-red-100 rounded-lg px-3 py-2">{error}</p>
-      )}
-
-      <button
-        type="submit"
-        disabled={processing || !stripe}
-        className="w-full bg-amber-500 hover:bg-amber-600 disabled:bg-stone-200 disabled:text-stone-400 text-white font-semibold py-3.5 rounded-lg transition-colors text-sm uppercase tracking-wide"
-      >
-        {processing ? "Processing payment..." : "Confirm Payment"}
-      </button>
-    </form>
-  );
+function fmtINR(amount: number): string {
+  return new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(amount);
 }
 
 export default function BookingConfirmPage() {
   const query = useQuery();
   const bookingId = Number(query.get("bookingId") ?? 0);
+  const [, navigate] = useLocation();
 
-  const { data: booking } = useGetBooking(bookingId, {
+  const { data: booking, isLoading: bookingLoading } = useGetBooking(bookingId, {
     query: { enabled: !!bookingId },
   });
 
-  const createPaymentIntent = useCreatePaymentIntent();
-  const [clientSecret, setClientSecret] = useState<string | null>(null);
-  const [intentError, setIntentError] = useState("");
+  const [Razorpay] = useRazorpay();
+  const [order, setOrder] = useState<RazorpayOrder | null>(null);
+  const [orderError, setOrderError] = useState("");
+  const [orderLoading, setOrderLoading] = useState(false);
+  const [verifying, setVerifying] = useState(false);
+  const [verifyError, setVerifyError] = useState("");
 
+  // Create Razorpay order once booking is loaded
   useEffect(() => {
-    if (!bookingId) return;
-    createPaymentIntent.mutate(
-      { data: { bookingId } },
-      {
-        onSuccess: (data) => setClientSecret(data.clientSecret ?? null),
-        onError: (err: any) => setIntentError(err?.data?.error ?? "Could not initialize payment."),
-      }
-    );
-  }, [bookingId]);
+    if (!booking || order || orderLoading) return;
+
+    setOrderLoading(true);
+    fetch("/api/payments/create-order", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ booking_id: booking.bookingId, total_amount: booking.totalPrice }),
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.error) { setOrderError(data.error); return; }
+        setOrder(data as RazorpayOrder);
+      })
+      .catch(() => setOrderError("Could not initialize payment. Please try again."))
+      .finally(() => setOrderLoading(false));
+  }, [booking]);
+
+  const handlePay = useCallback(() => {
+    if (!order || !booking || !Razorpay) return;
+    setVerifyError("");
+
+    const options = {
+      key: order.key_id ?? import.meta.env.VITE_RAZORPAY_KEY_ID,
+      order_id: order.order_id,
+      amount: order.amount,
+      currency: "INR",
+      name: "Room Booking Service",
+      description: `Booking #${booking.bookingId}`,
+      prefill: {
+        name: booking.guest?.guestName ?? "",
+        email: booking.guest?.email ?? "",
+        contact: booking.guest?.phone ?? "",
+      },
+      theme: { color: "#d97706" },
+      handler: async (response: {
+        razorpay_order_id: string;
+        razorpay_payment_id: string;
+        razorpay_signature: string;
+      }) => {
+        setVerifying(true);
+        try {
+          const result = await fetch("/api/payments/verify-order", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature,
+              booking_id: booking.bookingId,
+            }),
+          });
+          const data = await result.json();
+          if (data.success) {
+            navigate(`/booking/success?bookingId=${booking.bookingId}`);
+          } else {
+            setVerifyError("Payment verification failed. Contact support.");
+          }
+        } catch {
+          setVerifyError("Network error during verification.");
+        } finally {
+          setVerifying(false);
+        }
+      },
+    };
+
+    const rzp = new Razorpay(options);
+    rzp.on("payment.failed", (response: { error: { description: string } }) => {
+      setVerifyError(`Payment failed: ${response.error.description}`);
+    });
+    rzp.open();
+  }, [order, booking, Razorpay, navigate]);
 
   if (!bookingId) {
     return (
@@ -126,9 +126,21 @@ export default function BookingConfirmPage() {
         </div>
 
         {/* Booking summary */}
+        {bookingLoading && (
+          <div className="bg-white rounded-2xl border border-stone-100 shadow-sm p-6 mb-6 animate-pulse">
+            <div className="h-4 bg-stone-200 rounded mb-3 w-1/2" />
+            <div className="space-y-2">
+              <div className="h-3 bg-stone-100 rounded" />
+              <div className="h-3 bg-stone-100 rounded w-2/3" />
+            </div>
+          </div>
+        )}
+
         {booking && (
           <div className="bg-white rounded-2xl border border-stone-100 shadow-sm p-6 mb-6">
-            <h2 className="font-semibold text-stone-700 text-sm uppercase tracking-wider mb-4">Booking Summary</h2>
+            <h2 className="font-semibold text-stone-700 text-sm uppercase tracking-wider mb-4">
+              Booking Summary
+            </h2>
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
                 <span className="text-stone-500">Guest</span>
@@ -154,30 +166,58 @@ export default function BookingConfirmPage() {
               </div>
               <div className="flex justify-between pt-3 border-t border-stone-100">
                 <span className="font-semibold text-stone-700">Total</span>
-                <span className="font-bold text-amber-600 text-base">{formatCurrency(booking.totalPrice)}</span>
+                <span className="font-bold text-amber-600 text-base">
+                  {fmtINR(booking.totalPrice)}
+                </span>
               </div>
             </div>
           </div>
         )}
 
-        {/* Payment */}
+        {/* Payment section */}
         <div className="bg-white rounded-2xl border border-stone-100 shadow-sm p-6">
           <h2 className="font-semibold text-stone-700 text-sm uppercase tracking-wider mb-4">Payment</h2>
 
-          {intentError && (
-            <p className="text-red-500 text-sm bg-red-50 border border-red-100 rounded-lg px-3 py-2 mb-4">
-              {intentError}
-            </p>
+          {orderError && (
+            <div className="bg-red-50 border border-red-100 rounded-lg px-3 py-2 mb-4 text-red-500 text-sm">
+              {orderError}
+            </div>
+          )}
+          {verifyError && (
+            <div className="bg-red-50 border border-red-100 rounded-lg px-3 py-2 mb-4 text-red-500 text-sm">
+              {verifyError}
+            </div>
           )}
 
-          {!clientSecret && !intentError && (
-            <div className="animate-pulse text-stone-300 text-sm text-center py-6">Loading payment form...</div>
+          {orderLoading && (
+            <div className="text-center py-6 text-stone-400 text-sm animate-pulse">
+              Preparing payment…
+            </div>
           )}
 
-          {clientSecret && (
-            <Elements stripe={stripePromise} options={{ clientSecret }}>
-              <PaymentForm bookingId={bookingId} clientSecret={clientSecret} />
-            </Elements>
+          {verifying && (
+            <div className="text-center py-6 text-stone-500 text-sm">
+              Verifying payment…
+            </div>
+          )}
+
+          {order && !verifying && (
+            <div>
+              <div className="bg-stone-50 rounded-lg px-4 py-3 mb-5 text-xs text-stone-500 flex items-center justify-between">
+                <span>Secure payment via Razorpay</span>
+                <span className="font-semibold text-stone-700">{fmtINR(booking?.totalPrice ?? 0)}</span>
+              </div>
+              <button
+                onClick={handlePay}
+                disabled={!Razorpay}
+                className="w-full bg-amber-500 hover:bg-amber-600 disabled:bg-stone-200 disabled:text-stone-400 text-white font-semibold py-3.5 rounded-lg transition-colors text-sm uppercase tracking-wide"
+              >
+                Pay {booking ? fmtINR(booking.totalPrice) : ""}
+              </button>
+              <p className="text-center text-xs text-stone-400 mt-3">
+                You'll be redirected to Razorpay's secure checkout
+              </p>
+            </div>
           )}
         </div>
       </div>
