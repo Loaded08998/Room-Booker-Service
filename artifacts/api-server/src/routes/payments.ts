@@ -37,7 +37,7 @@ router.post("/payments/create-intent", async (req, res): Promise<void> => {
     const stripe = getStripe();
     const intent = await stripe.paymentIntents.create({
       amount: Math.round(Number(booking.totalPrice) * 100), // in cents
-      currency: "thb",
+      currency: "inr",
       metadata: { bookingId: booking.bookingId.toString() },
     });
 

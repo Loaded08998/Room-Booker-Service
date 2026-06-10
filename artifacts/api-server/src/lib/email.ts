@@ -32,7 +32,7 @@ export async function sendBookingConfirmation(data: BookingConfirmationData): Pr
         <li><strong>Booking ID:</strong> ${data.bookingId}</li>
         <li><strong>Check-in:</strong> ${data.checkInDate}</li>
         <li><strong>Check-out:</strong> ${data.checkOutDate}</li>
-        <li><strong>Total:</strong> ฿${data.totalPrice.toLocaleString()}</li>
+        <li><strong>Total:</strong> ₹${data.totalPrice.toLocaleString("en-IN")}</li>
       </ul>
       <p>We look forward to welcoming you.</p>
     `,
