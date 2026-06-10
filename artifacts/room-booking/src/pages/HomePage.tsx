@@ -1,6 +1,14 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
 
+const CAPACITY_OPTIONS = [
+  { value: "", label: "Any size" },
+  { value: "2", label: "2 beds" },
+  { value: "3", label: "3 beds" },
+  { value: "4", label: "4 beds" },
+  { value: "10", label: "10 beds (Conference)" },
+];
+
 export default function HomePage() {
   const today = new Date();
   const tomorrow = new Date(today);
@@ -9,11 +17,14 @@ export default function HomePage() {
   const fmt = (d: Date) => d.toISOString().split("T")[0];
   const [checkIn, setCheckIn] = useState(fmt(today));
   const [checkOut, setCheckOut] = useState(fmt(tomorrow));
+  const [capacity, setCapacity] = useState("");
   const [, navigate] = useLocation();
 
   function handleSearch(e: React.FormEvent) {
     e.preventDefault();
-    navigate(`/rooms?check_in=${checkIn}&check_out=${checkOut}`);
+    const params = new URLSearchParams({ check_in: checkIn, check_out: checkOut });
+    if (capacity) params.set("capacity", capacity);
+    navigate(`/rooms?${params.toString()}`);
   }
 
   return (
@@ -28,7 +39,7 @@ export default function HomePage() {
         }}
       >
         <div className="absolute inset-0 bg-stone-900/55" />
-        <div className="relative z-10 text-center px-4">
+        <div className="relative z-10 text-center px-4 w-full">
           <p className="text-amber-300 text-sm font-semibold tracking-widest uppercase mb-3">
             Welcome
           </p>
@@ -42,9 +53,9 @@ export default function HomePage() {
           {/* Search Form */}
           <form
             onSubmit={handleSearch}
-            className="bg-white/95 backdrop-blur rounded-2xl shadow-2xl p-6 md:p-8 max-w-2xl mx-auto"
+            className="bg-white/95 backdrop-blur rounded-2xl shadow-2xl p-6 md:p-8 max-w-3xl mx-auto"
           >
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-5">
               <div className="text-left">
                 <label className="block text-xs font-semibold text-stone-500 uppercase tracking-wider mb-1.5">
                   Check-in
@@ -70,6 +81,20 @@ export default function HomePage() {
                   className="w-full border border-stone-200 rounded-lg px-4 py-3 text-stone-800 focus:outline-none focus:ring-2 focus:ring-amber-400 text-sm"
                   required
                 />
+              </div>
+              <div className="text-left">
+                <label className="block text-xs font-semibold text-stone-500 uppercase tracking-wider mb-1.5">
+                  Capacity
+                </label>
+                <select
+                  value={capacity}
+                  onChange={(e) => setCapacity(e.target.value)}
+                  className="w-full border border-stone-200 rounded-lg px-4 py-3 text-stone-800 focus:outline-none focus:ring-2 focus:ring-amber-400 text-sm bg-white appearance-none cursor-pointer"
+                >
+                  {CAPACITY_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value}>{o.label}</option>
+                  ))}
+                </select>
               </div>
             </div>
             <button

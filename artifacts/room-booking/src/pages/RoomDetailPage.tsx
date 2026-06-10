@@ -4,8 +4,7 @@ import { useGetRoom, useCreateBooking } from "@workspace/api-client-react";
 import { formatCurrency, calcNights } from "@/lib/utils";
 
 function useQuery() {
-  const [location] = useLocation();
-  return new URLSearchParams(location.includes("?") ? location.split("?")[1] : "");
+  return new URLSearchParams(window.location.search);
 }
 
 export default function RoomDetailPage() {

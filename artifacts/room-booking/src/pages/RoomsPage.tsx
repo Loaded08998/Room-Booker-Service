@@ -1,16 +1,16 @@
-import { useLocation, Link } from "wouter";
+import { Link } from "wouter";
 import { useGetAvailability, useListRooms } from "@workspace/api-client-react";
 import { formatCurrency } from "@/lib/utils";
 
 function useQuery() {
-  const [location] = useLocation();
-  return new URLSearchParams(location.includes("?") ? location.split("?")[1] : "");
+  return new URLSearchParams(window.location.search);
 }
 
 export default function RoomsPage() {
   const query = useQuery();
   const checkIn = query.get("check_in") ?? "";
   const checkOut = query.get("check_out") ?? "";
+  const capacityFilter = query.get("capacity") ? Number(query.get("capacity")) : null;
 
   const hasDateRange = !!checkIn && !!checkOut;
 
@@ -22,8 +22,14 @@ export default function RoomsPage() {
     query: { enabled: !hasDateRange },
   });
 
-  const rooms = hasDateRange ? availableRooms : allRooms;
+  const rawRooms = hasDateRange ? availableRooms : allRooms;
   const isLoading = hasDateRange ? loadingAvail : loadingAll;
+
+  const rooms = capacityFilter
+    ? rawRooms?.filter((r) => r.capacity >= capacityFilter)
+    : rawRooms;
+
+  const capacityLabel = capacityFilter ? `${capacityFilter}+ beds` : null;
 
   return (
     <div className="min-h-screen bg-stone-50">
@@ -35,7 +41,8 @@ export default function RoomsPage() {
         <h1 className="text-4xl font-serif font-bold mb-3">Our Rooms</h1>
         {hasDateRange ? (
           <p className="text-stone-300 text-sm">
-            Available rooms from <strong>{checkIn}</strong> to <strong>{checkOut}</strong>
+            Available from <strong>{checkIn}</strong> to <strong>{checkOut}</strong>
+            {capacityLabel && <> · <strong>{capacityLabel}</strong></>}
           </p>
         ) : (
           <p className="text-stone-300 text-sm">All rooms — select dates on the home page to filter availability</p>
@@ -46,7 +53,11 @@ export default function RoomsPage() {
         {/* Date hint */}
         {!hasDateRange && (
           <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-8 text-amber-800 text-sm text-center">
-            No dates selected. <Link href="/" className="font-semibold underline">Select dates</Link> to check availability.
+            No dates selected.{" "}
+            <Link href="/" className="font-semibold underline">
+              Select dates
+            </Link>{" "}
+            to check availability.
           </div>
         )}
 
@@ -66,9 +77,9 @@ export default function RoomsPage() {
 
         {!isLoading && rooms && rooms.length === 0 && (
           <div className="text-center py-20">
-            <p className="text-stone-400 text-lg">No rooms available for the selected dates.</p>
+            <p className="text-stone-400 text-lg">No rooms match your search.</p>
             <Link href="/" className="mt-4 inline-block text-amber-600 font-semibold hover:underline">
-              Try different dates
+              Try different dates or capacity
             </Link>
           </div>
         )}
@@ -93,18 +104,24 @@ export default function RoomsPage() {
                 <div className="p-5">
                   <div className="flex items-center justify-between mb-2">
                     <h3 className="font-semibold text-stone-800 text-lg">Room {room.roomName}</h3>
-                    <span className="text-stone-400 text-xs">{room.capacity} bed{room.capacity > 1 ? "s" : ""}</span>
+                    <span className="text-stone-400 text-xs">
+                      {room.capacity} bed{room.capacity > 1 ? "s" : ""}
+                    </span>
                   </div>
                   <p className="text-stone-500 text-sm mb-4 line-clamp-2">{room.description}</p>
 
                   <div className="bg-stone-50 rounded-lg p-3 mb-4 text-xs space-y-1">
                     <div className="flex justify-between">
                       <span className="text-stone-500">Standard rate</span>
-                      <span className="font-semibold text-stone-800">{formatCurrency(room.pricePerNightNonmember)}/night</span>
+                      <span className="font-semibold text-stone-800">
+                        {formatCurrency(room.pricePerNightNonmember)}/night
+                      </span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-amber-600 font-medium">Member rate</span>
-                      <span className="font-semibold text-amber-700">{formatCurrency(room.pricePerNightMember)}/night</span>
+                      <span className="font-semibold text-amber-700">
+                        {formatCurrency(room.pricePerNightMember)}/night
+                      </span>
                     </div>
                   </div>
 
