@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "Room Booking"
+version = "1.0.0"
+id = "artifacts/room-booking"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 22146
+
+[services.development]
+run = "pnpm --filter @workspace/room-booking run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/room-booking", "run", "build" ]
+publicDir = "artifacts/room-booking/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "22146"
+BASE_PATH = "/"

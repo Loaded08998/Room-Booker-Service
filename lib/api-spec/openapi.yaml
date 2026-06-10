@@ -3,20 +3,28 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Room Booking API specification
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: rooms
+    description: Room operations
+  - name: bookings
+    description: Booking operations
+  - name: payments
+    description: Payment operations
+  - name: admin
+    description: Admin operations
+
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,6 +32,215 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /rooms:
+    get:
+      operationId: listRooms
+      tags: [rooms]
+      summary: List all rooms
+      responses:
+        "200":
+          description: List of rooms
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Room"
+
+  /rooms/{id}:
+    get:
+      operationId: getRoom
+      tags: [rooms]
+      summary: Get a single room
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Room details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Room"
+        "404":
+          description: Room not found
+
+  /availability:
+    get:
+      operationId: getAvailability
+      tags: [rooms]
+      summary: Get available rooms for a date range
+      parameters:
+        - name: check_in
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: check_out
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Available rooms
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Room"
+
+  /bookings:
+    post:
+      operationId: createBooking
+      tags: [bookings]
+      summary: Create a booking
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BookingInput"
+      responses:
+        "201":
+          description: Booking created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Booking"
+        "400":
+          description: Bad request
+
+  /bookings/{id}:
+    get:
+      operationId: getBooking
+      tags: [bookings]
+      summary: Get booking by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Booking details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BookingDetail"
+        "404":
+          description: Booking not found
+
+  /payments/create-intent:
+    post:
+      operationId: createPaymentIntent
+      tags: [payments]
+      summary: Create a Stripe payment intent
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PaymentIntentInput"
+      responses:
+        "200":
+          description: Payment intent created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaymentIntentResult"
+        "400":
+          description: Bad request
+
+  /admin/login:
+    post:
+      operationId: adminLogin
+      tags: [admin]
+      summary: Admin login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminLoginInput"
+      responses:
+        "200":
+          description: Login success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminLoginResult"
+        "401":
+          description: Invalid credentials
+
+  /admin/bookings:
+    get:
+      operationId: listAdminBookings
+      tags: [admin]
+      summary: List all bookings (admin)
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: date_from
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: date_to
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: All bookings
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/BookingDetail"
+        "401":
+          description: Unauthorized
+
+  /admin/bookings/{id}/status:
+    put:
+      operationId: updateBookingStatus
+      tags: [admin]
+      summary: Update booking status
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BookingStatusUpdate"
+      responses:
+        "200":
+          description: Status updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Booking"
+        "404":
+          description: Booking not found
+        "401":
+          description: Unauthorized
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +251,138 @@ components:
       required:
         - status
 
+    Room:
+      type: object
+      required: [roomId, roomName, capacity, pricePerNightNonmember, pricePerNightMember, description]
+      properties:
+        roomId:
+          type: integer
+        roomName:
+          type: string
+        capacity:
+          type: integer
+        pricePerNightNonmember:
+          type: number
+        pricePerNightMember:
+          type: number
+        description:
+          type: string
+        imageUrl:
+          type: ["string", "null"]
+
+    Guest:
+      type: object
+      required: [guestId, guestName, email, isMember]
+      properties:
+        guestId:
+          type: integer
+        guestName:
+          type: string
+        email:
+          type: string
+        phone:
+          type: ["string", "null"]
+        isMember:
+          type: boolean
+
+    Booking:
+      type: object
+      required: [bookingId, guestId, checkInDate, checkOutDate, totalPrice, status, createdAt]
+      properties:
+        bookingId:
+          type: integer
+        guestId:
+          type: integer
+        checkInDate:
+          type: string
+        checkOutDate:
+          type: string
+        totalPrice:
+          type: number
+        status:
+          type: string
+        createdAt:
+          type: string
+
+    BookingDetail:
+      type: object
+      required: [bookingId, guestId, checkInDate, checkOutDate, totalPrice, status, createdAt, guest, rooms]
+      properties:
+        bookingId:
+          type: integer
+        guestId:
+          type: integer
+        checkInDate:
+          type: string
+        checkOutDate:
+          type: string
+        totalPrice:
+          type: number
+        status:
+          type: string
+        createdAt:
+          type: string
+        guest:
+          $ref: "#/components/schemas/Guest"
+        rooms:
+          type: array
+          items:
+            $ref: "#/components/schemas/Room"
+
+    BookingInput:
+      type: object
+      required: [guestName, email, checkInDate, checkOutDate, roomIds, isMember]
+      properties:
+        guestName:
+          type: string
+        email:
+          type: string
+        phone:
+          type: ["string", "null"]
+        checkInDate:
+          type: string
+        checkOutDate:
+          type: string
+        roomIds:
+          type: array
+          items:
+            type: integer
+        isMember:
+          type: boolean
+
+    PaymentIntentInput:
+      type: object
+      required: [bookingId]
+      properties:
+        bookingId:
+          type: integer
+
+    PaymentIntentResult:
+      type: object
+      required: [clientSecret]
+      properties:
+        clientSecret:
+          type: string
+
+    AdminLoginInput:
+      type: object
+      required: [username, password]
+      properties:
+        username:
+          type: string
+        password:
+          type: string
+
+    AdminLoginResult:
+      type: object
+      required: [token]
+      properties:
+        token:
+          type: string
+
+    BookingStatusUpdate:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
