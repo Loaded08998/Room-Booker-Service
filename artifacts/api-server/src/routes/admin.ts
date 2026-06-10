@@ -1,8 +1,15 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
-import { eq, and, gte, lte, inArray } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-import { db, adminsTable, bookingsTable, guestsTable, reservationsTable, roomsTable } from "@workspace/db";
+import {
+  db,
+  adminsTable,
+  bookingsTable,
+  guestsTable,
+  reservationsTable,
+  roomsTable,
+} from "@workspace/db";
 import {
   AdminLoginBody,
   ListAdminBookingsQueryParams,
@@ -31,6 +38,8 @@ function requireAdmin(req: Request, res: Response, next: NextFunction): void {
     res.status(401).json({ error: "Invalid token" });
   }
 }
+
+// ── Auth ──────────────────────────────────────────────────────────────────────
 
 router.post("/admin/login", async (req, res): Promise<void> => {
   const parsed = AdminLoginBody.safeParse(req.body);
@@ -64,6 +73,8 @@ router.post("/admin/login", async (req, res): Promise<void> => {
   res.json({ token });
 });
 
+// ── Bookings ──────────────────────────────────────────────────────────────────
+
 router.get("/admin/bookings", requireAdmin, async (req, res): Promise<void> => {
   const queryParams = ListAdminBookingsQueryParams.safeParse(req.query);
   if (!queryParams.success) {
@@ -78,16 +89,9 @@ router.get("/admin/bookings", requireAdmin, async (req, res): Promise<void> => {
     .from(bookingsTable)
     .orderBy(bookingsTable.createdAt);
 
-  // Apply filters
-  if (status) {
-    bookings = bookings.filter((b) => b.status === status);
-  }
-  if (date_from) {
-    bookings = bookings.filter((b) => b.checkInDate >= date_from);
-  }
-  if (date_to) {
-    bookings = bookings.filter((b) => b.checkOutDate <= date_to);
-  }
+  if (status) bookings = bookings.filter((b) => b.status === status);
+  if (date_from) bookings = bookings.filter((b) => b.checkInDate >= date_from);
+  if (date_to) bookings = bookings.filter((b) => b.checkOutDate <= date_to);
 
   const bookingIds = bookings.map((b) => b.bookingId);
   const guestIds = bookings.map((b) => b.guestId);
@@ -139,10 +143,6 @@ router.get("/admin/bookings", requireAdmin, async (req, res): Promise<void> => {
         roomId: r.roomId,
         roomName: r.roomName,
         capacity: r.capacity,
-        pricePerNightNonmember: Number(r.pricePerNightNonmember),
-        pricePerNightMember: Number(r.pricePerNightMember),
-        description: r.description,
-        imageUrl: r.imageUrl,
       })),
     };
   });
@@ -189,6 +189,89 @@ router.put("/admin/bookings/:id/status", requireAdmin, async (req, res): Promise
     status: booking.status,
     createdAt: booking.createdAt.toISOString(),
   });
+});
+
+// ── Guests ────────────────────────────────────────────────────────────────────
+
+router.get("/admin/guests", requireAdmin, async (req, res): Promise<void> => {
+  const guests = await db
+    .select()
+    .from(guestsTable)
+    .orderBy(guestsTable.guestId);
+
+  res.json(
+    guests.map((g) => ({
+      guestId: g.guestId,
+      guestName: g.guestName,
+      email: g.email,
+      phone: g.phone ?? null,
+      isMember: g.isMember,
+    }))
+  );
+});
+
+// ── Rooms ─────────────────────────────────────────────────────────────────────
+
+router.get("/admin/rooms", requireAdmin, async (req, res): Promise<void> => {
+  const rooms = await db
+    .select()
+    .from(roomsTable)
+    .orderBy(roomsTable.roomId);
+
+  res.json(
+    rooms.map((r) => ({
+      roomId: r.roomId,
+      roomName: r.roomName,
+      capacity: r.capacity,
+      pricePerNightNonmember: Number(r.pricePerNightNonmember),
+      pricePerNightMember: Number(r.pricePerNightMember),
+      description: r.description,
+      imageUrl: r.imageUrl ?? null,
+    }))
+  );
+});
+
+// ── Reservations ──────────────────────────────────────────────────────────────
+
+router.get("/admin/reservations", requireAdmin, async (req, res): Promise<void> => {
+  const reservations = await db
+    .select()
+    .from(reservationsTable)
+    .orderBy(reservationsTable.reservationId);
+
+  const bookingIds = [...new Set(reservations.map((r) => r.bookingId))];
+  const roomIds = [...new Set(reservations.map((r) => r.roomId))];
+
+  const bookings =
+    bookingIds.length > 0
+      ? await db
+          .select()
+          .from(bookingsTable)
+          .where(inArray(bookingsTable.bookingId, bookingIds))
+      : [];
+
+  const rooms =
+    roomIds.length > 0
+      ? await db.select().from(roomsTable).where(inArray(roomsTable.roomId, roomIds))
+      : [];
+
+  res.json(
+    reservations.map((r) => {
+      const booking = bookings.find((b) => b.bookingId === r.bookingId);
+      const room = rooms.find((rm) => rm.roomId === r.roomId);
+      return {
+        reservationId: r.reservationId,
+        bookingId: r.bookingId,
+        roomId: r.roomId,
+        priceAtBooking: Number(r.priceAtBooking),
+        roomName: room?.roomName ?? null,
+        guestId: booking?.guestId ?? null,
+        checkInDate: booking?.checkInDate ?? null,
+        checkOutDate: booking?.checkOutDate ?? null,
+        bookingStatus: booking?.status ?? null,
+      };
+    })
+  );
 });
 
 export default router;
