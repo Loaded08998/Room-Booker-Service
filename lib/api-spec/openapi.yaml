@@ -18,6 +18,8 @@ tags:
     description: Payment operations
   - name: admin
     description: Admin operations
+  - name: Auth
+    description: Browser and mobile authentication endpoints
 
 paths:
   /healthz:
