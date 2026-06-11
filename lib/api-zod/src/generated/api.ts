@@ -118,14 +118,34 @@ export const GetBookingResponse = zod.object({
 
 
 /**
- * @summary Create a Stripe payment intent
+ * @summary Create a Razorpay order
  */
-export const CreatePaymentIntentBody = zod.object({
-  "bookingId": zod.number()
+export const CreateRazorpayOrderBody = zod.object({
+  "booking_id": zod.number(),
+  "total_amount": zod.number()
 })
 
-export const CreatePaymentIntentResponse = zod.object({
-  "clientSecret": zod.string()
+export const CreateRazorpayOrderResponse = zod.object({
+  "order_id": zod.string(),
+  "amount": zod.number(),
+  "currency": zod.string(),
+  "key_id": zod.string()
+})
+
+
+/**
+ * @summary Verify a Razorpay payment and confirm the booking
+ */
+export const VerifyRazorpayOrderBody = zod.object({
+  "razorpay_order_id": zod.string(),
+  "razorpay_payment_id": zod.string(),
+  "razorpay_signature": zod.string(),
+  "booking_id": zod.number()
+})
+
+export const VerifyRazorpayOrderResponse = zod.object({
+  "success": zod.boolean(),
+  "booking_id": zod.number()
 })
 
 

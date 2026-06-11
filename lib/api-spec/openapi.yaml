@@ -137,26 +137,53 @@ paths:
         "404":
           description: Booking not found
 
-  /payments/create-intent:
+  /payments/create-order:
     post:
-      operationId: createPaymentIntent
+      operationId: createRazorpayOrder
       tags: [payments]
-      summary: Create a Stripe payment intent
+      summary: Create a Razorpay order
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/PaymentIntentInput"
+              $ref: "#/components/schemas/RazorpayCreateOrderInput"
       responses:
         "200":
-          description: Payment intent created
+          description: Razorpay order created
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/PaymentIntentResult"
+                $ref: "#/components/schemas/RazorpayOrderResult"
         "400":
           description: Bad request
+        "404":
+          description: Booking not found
+        "500":
+          description: Payment service error
+
+  /payments/verify-order:
+    post:
+      operationId: verifyRazorpayOrder
+      tags: [payments]
+      summary: Verify a Razorpay payment and confirm the booking
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RazorpayVerifyInput"
+      responses:
+        "200":
+          description: Payment verified and booking confirmed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RazorpayVerifyResult"
+        "400":
+          description: Missing fields or invalid signature
+        "404":
+          description: Booking not found
 
   /admin/login:
     post:
@@ -350,19 +377,49 @@ components:
         isMember:
           type: boolean
 
-    PaymentIntentInput:
+    RazorpayCreateOrderInput:
       type: object
-      required: [bookingId]
+      required: [booking_id, total_amount]
       properties:
-        bookingId:
+        booking_id:
+          type: integer
+        total_amount:
+          type: number
+
+    RazorpayOrderResult:
+      type: object
+      required: [order_id, amount, currency, key_id]
+      properties:
+        order_id:
+          type: string
+        amount:
+          type: number
+        currency:
+          type: string
+        key_id:
+          type: string
+
+    RazorpayVerifyInput:
+      type: object
+      required: [razorpay_order_id, razorpay_payment_id, razorpay_signature, booking_id]
+      properties:
+        razorpay_order_id:
+          type: string
+        razorpay_payment_id:
+          type: string
+        razorpay_signature:
+          type: string
+        booking_id:
           type: integer
 
-    PaymentIntentResult:
+    RazorpayVerifyResult:
       type: object
-      required: [clientSecret]
+      required: [success, booking_id]
       properties:
-        clientSecret:
-          type: string
+        success:
+          type: boolean
+        booking_id:
+          type: integer
 
     AdminLoginInput:
       type: object

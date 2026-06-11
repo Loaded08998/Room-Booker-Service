@@ -62,12 +62,28 @@ export interface BookingInput {
   isMember: boolean;
 }
 
-export interface PaymentIntentInput {
-  bookingId: number;
+export interface RazorpayCreateOrderInput {
+  booking_id: number;
+  total_amount: number;
 }
 
-export interface PaymentIntentResult {
-  clientSecret: string;
+export interface RazorpayOrderResult {
+  order_id: string;
+  amount: number;
+  currency: string;
+  key_id: string;
+}
+
+export interface RazorpayVerifyInput {
+  razorpay_order_id: string;
+  razorpay_payment_id: string;
+  razorpay_signature: string;
+  booking_id: number;
+}
+
+export interface RazorpayVerifyResult {
+  success: boolean;
+  booking_id: number;
 }
 
 export interface AdminLoginInput {

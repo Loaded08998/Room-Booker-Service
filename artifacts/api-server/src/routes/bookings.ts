@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, or, sql } from "drizzle-orm";
 import { db, roomsTable, guestsTable, bookingsTable, reservationsTable } from "@workspace/db";
 import { CreateBookingBody, GetBookingParams } from "@workspace/api-zod";
 import { sendBookingConfirmation } from "../lib/email";
@@ -43,84 +43,85 @@ router.post("/bookings", async (req, res): Promise<void> => {
     return sum + pricePerNight * nights;
   }, 0);
 
-  // Run in a transaction
-  const result = await db.transaction(async (tx) => {
-    // Check availability within the transaction
-    const overlapping = await tx
-      .select({ roomId: reservationsTable.roomId })
-      .from(reservationsTable)
-      .innerJoin(bookingsTable, eq(reservationsTable.bookingId, bookingsTable.bookingId))
-      .where(inArray(reservationsTable.roomId, roomIds));
+  let result: { booking: typeof bookingsTable.$inferSelect; guest: typeof guestsTable.$inferSelect };
+  try {
+    result = await db.transaction(async (tx) => {
+      // Check availability within the transaction — single SQL overlap query
+      const conflicts = await tx
+        .selectDistinct({ roomId: reservationsTable.roomId })
+        .from(reservationsTable)
+        .innerJoin(bookingsTable, eq(reservationsTable.bookingId, bookingsTable.bookingId))
+        .where(
+          and(
+            inArray(reservationsTable.roomId, roomIds),
+            or(eq(bookingsTable.status, "confirmed"), eq(bookingsTable.status, "pending")),
+            sql`${bookingsTable.checkInDate} < ${checkOutDate}`,
+            sql`${bookingsTable.checkOutDate} > ${checkInDate}`,
+          )
+        );
 
-    const conflicts = overlapping.filter(
-      async (b) =>
-        b.roomId !== null
-    );
+      if (conflicts.length > 0) {
+        throw new Error("ROOM_UNAVAILABLE");
+      }
 
-    // Get actual dates for overlap check
-    const allReservations = await tx
-      .select({
-        roomId: reservationsTable.roomId,
-        checkIn: bookingsTable.checkInDate,
-        checkOut: bookingsTable.checkOutDate,
-        status: bookingsTable.status,
-      })
-      .from(reservationsTable)
-      .innerJoin(bookingsTable, eq(reservationsTable.bookingId, bookingsTable.bookingId))
-      .where(inArray(reservationsTable.roomId, roomIds));
+      // Create or find guest
+      const [existingGuest] = await tx
+        .select()
+        .from(guestsTable)
+        .where(eq(guestsTable.email, email));
 
-    const hasConflict = allReservations.some(
-      (b) =>
-        (b.status === "confirmed" || b.status === "pending") &&
-        b.checkIn < checkOutDate &&
-        b.checkOut > checkInDate
-    );
+      let guest = existingGuest;
+      if (!guest) {
+        const [newGuest] = await tx
+          .insert(guestsTable)
+          .values({ guestName, email, phone: phone ?? null, isMember })
+          .returning();
+        guest = newGuest;
+      }
 
-    if (hasConflict) {
-      throw new Error("ROOM_UNAVAILABLE");
-    }
-
-    // Create or find guest
-    const [existingGuest] = await tx
-      .select()
-      .from(guestsTable)
-      .where(eq(guestsTable.email, email));
-
-    let guest = existingGuest;
-    if (!guest) {
-      const [newGuest] = await tx
-        .insert(guestsTable)
-        .values({ guestName, email, phone: phone ?? null, isMember })
+      // Create booking
+      const [booking] = await tx
+        .insert(bookingsTable)
+        .values({
+          guestId: guest.guestId,
+          checkInDate,
+          checkOutDate,
+          totalPrice: totalPrice.toFixed(2),
+          status: "pending",
+        })
         .returning();
-      guest = newGuest;
+
+      // Create reservations
+      for (const room of rooms) {
+        const priceAtBooking = isMember
+          ? Number(room.pricePerNightMember)
+          : Number(room.pricePerNightNonmember);
+        await tx.insert(reservationsTable).values({
+          bookingId: booking.bookingId,
+          roomId: room.roomId,
+          priceAtBooking: (priceAtBooking * nights).toFixed(2),
+        });
+      }
+
+      return { booking, guest };
+    });
+  } catch (err: unknown) {
+    if (err instanceof Error && err.message === "ROOM_UNAVAILABLE") {
+      res.status(409).json({ error: "One or more rooms are not available for the selected dates" });
+      return;
     }
+    throw err;
+  }
 
-    // Create booking
-    const [booking] = await tx
-      .insert(bookingsTable)
-      .values({
-        guestId: guest.guestId,
-        checkInDate,
-        checkOutDate,
-        totalPrice: totalPrice.toFixed(2),
-        status: "pending",
-      })
-      .returning();
-
-    // Create reservations
-    for (const room of rooms) {
-      const priceAtBooking = isMember
-        ? Number(room.pricePerNightMember)
-        : Number(room.pricePerNightNonmember);
-      await tx.insert(reservationsTable).values({
-        bookingId: booking.bookingId,
-        roomId: room.roomId,
-        priceAtBooking: (priceAtBooking * nights).toFixed(2),
-      });
-    }
-
-    return { booking, guest };
-  });
+  // Send email confirmation (non-blocking)
+  sendBookingConfirmation({
+    to: result.guest.email,
+    guestName: result.guest.guestName,
+    bookingId: result.booking.bookingId,
+    checkInDate: result.booking.checkInDate,
+    checkOutDate: result.booking.checkOutDate,
+    totalPrice: Number(result.booking.totalPrice),
+  }).catch((err) => logger.error({ err }, "Email send failed"));
 
   res.status(201).json({
     bookingId: result.booking.bookingId,

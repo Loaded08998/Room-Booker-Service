@@ -22,7 +22,11 @@ import { getWhatsAppStatus } from "../services/whatsapp";
 const router: IRouter = Router();
 
 function getJwtSecret(): string {
-  return process.env.SESSION_SECRET ?? "dev-secret-change-me";
+  const secret = process.env.SESSION_SECRET;
+  if (!secret) {
+    throw new Error("SESSION_SECRET environment variable is not set");
+  }
+  return secret;
 }
 
 function requireAdmin(req: Request, res: Response, next: NextFunction): void {

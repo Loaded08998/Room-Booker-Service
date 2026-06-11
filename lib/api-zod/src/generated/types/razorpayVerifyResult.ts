@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface PaymentIntentInput {
-  bookingId: number;
+export interface RazorpayVerifyResult {
+  success: boolean;
+  booking_id: number;
 }

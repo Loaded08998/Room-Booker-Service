@@ -6,6 +6,9 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface PaymentIntentResult {
-  clientSecret: string;
+export interface RazorpayOrderResult {
+  order_id: string;
+  amount: number;
+  currency: string;
+  key_id: string;
 }
