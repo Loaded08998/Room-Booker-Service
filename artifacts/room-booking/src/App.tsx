@@ -1,12 +1,12 @@
 import { Switch, Route, Router as WouterRouter } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import NotFound from "@/pages/not-found";
-import HomePage from "@/pages/HomePage";
-import RoomsPage from "@/pages/RoomsPage";
-import RoomDetailPage from "@/pages/RoomDetailPage";
-import BookingConfirmPage from "@/pages/BookingConfirmPage";
-import BookingSuccessPage from "@/pages/BookingSuccessPage";
-import AdminPage from "@/pages/AdminPage";
+import HomePage from "@/pages/home/HomePage";
+import RoomsPage from "@/pages/rooms/RoomsPage";
+import RoomDetailPage from "@/pages/rooms/RoomDetailPage";
+import BookingConfirmPage from "@/pages/booking/BookingConfirmPage";
+import BookingSuccessPage from "@/pages/booking/BookingSuccessPage";
+import AdminPage from "@/pages/admin/AdminPage";
 
 const queryClient = new QueryClient();
 

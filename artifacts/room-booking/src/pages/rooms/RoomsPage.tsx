@@ -1,5 +1,5 @@
 import { Link } from "wouter";
-import { useGetAvailability, useListRooms } from "@workspace/api-client-react";
+import { useGetAvailability, useListRooms, getGetAvailabilityQueryKey, getListRoomsQueryKey } from "@workspace/api-client-react";
 import { formatCurrency } from "@/lib/utils";
 
 function useQuery() {
@@ -16,10 +16,10 @@ export default function RoomsPage() {
 
   const { data: availableRooms, isLoading: loadingAvail } = useGetAvailability(
     { check_in: checkIn, check_out: checkOut },
-    { query: { enabled: hasDateRange } }
+    { query: { queryKey: getGetAvailabilityQueryKey({ check_in: checkIn, check_out: checkOut }), enabled: hasDateRange } }
   );
   const { data: allRooms, isLoading: loadingAll } = useListRooms({
-    query: { enabled: !hasDateRange },
+    query: { queryKey: getListRoomsQueryKey(), enabled: !hasDateRange },
   });
 
   const rawRooms = hasDateRange ? availableRooms : allRooms;

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useRoute, useLocation, Link } from "wouter";
-import { useGetRoom, useCreateBooking } from "@workspace/api-client-react";
+import { useGetRoom, useCreateBooking, getGetRoomQueryKey } from "@workspace/api-client-react";
 import { formatCurrency, calcNights } from "@/lib/utils";
 
 function useQuery() {
@@ -24,7 +24,7 @@ export default function RoomDetailPage() {
   const [error, setError] = useState("");
 
   const { data: room, isLoading } = useGetRoom(roomId, {
-    query: { enabled: !!roomId },
+    query: { queryKey: getGetRoomQueryKey(roomId), enabled: !!roomId },
   });
 
   const createBooking = useCreateBooking();

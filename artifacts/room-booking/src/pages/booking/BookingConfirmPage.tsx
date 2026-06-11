@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useLocation } from "wouter";
-import useRazorpay from "react-razorpay";
-import { useGetBooking } from "@workspace/api-client-react";
+import { useRazorpay } from "react-razorpay";
+import { useGetBooking, getGetBookingQueryKey } from "@workspace/api-client-react";
 import { formatDate } from "@/lib/utils";
 
 function useQuery() {
@@ -25,10 +25,10 @@ export default function BookingConfirmPage() {
   const [, navigate] = useLocation();
 
   const { data: booking, isLoading: bookingLoading } = useGetBooking(bookingId, {
-    query: { enabled: !!bookingId },
+    query: { queryKey: getGetBookingQueryKey(bookingId), enabled: !!bookingId },
   });
 
-  const [Razorpay] = useRazorpay();
+  const { Razorpay } = useRazorpay();
   const [order, setOrder] = useState<RazorpayOrder | null>(null);
   const [orderError, setOrderError] = useState("");
   const [orderLoading, setOrderLoading] = useState(false);
@@ -62,7 +62,7 @@ export default function BookingConfirmPage() {
       key: order.key_id ?? import.meta.env.VITE_RAZORPAY_KEY_ID,
       order_id: order.order_id,
       amount: order.amount,
-      currency: "INR",
+      currency: "INR" as const,
       name: "Room Booking Service",
       description: `Booking #${booking.bookingId}`,
       prefill: {

@@ -1,10 +1,9 @@
-import { useLocation, Link } from "wouter";
-import { useGetBooking } from "@workspace/api-client-react";
+import { Link } from "wouter";
+import { useGetBooking, getGetBookingQueryKey } from "@workspace/api-client-react";
 import { formatDate, formatCurrency } from "@/lib/utils";
 
 function useQuery() {
-  const [location] = useLocation();
-  return new URLSearchParams(location.includes("?") ? location.split("?")[1] : "");
+  return new URLSearchParams(window.location.search);
 }
 
 export default function BookingSuccessPage() {
@@ -12,7 +11,7 @@ export default function BookingSuccessPage() {
   const bookingId = Number(query.get("bookingId") ?? 0);
 
   const { data: booking, isLoading } = useGetBooking(bookingId, {
-    query: { enabled: !!bookingId },
+    query: { queryKey: getGetBookingQueryKey(bookingId), enabled: !!bookingId },
   });
 
   return (
