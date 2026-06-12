@@ -12,23 +12,23 @@ async function seed() {
 
     // Rooms
     const rooms = await db.insert(roomsTable).values([
-        { roomName: "CR", capacity: 10, pricePerNightNonMember: 7000, pricePerNightMember: 4000, description: "Conference Room, double AC, large bathroom", imageUrl: null },
-        { roomName: "201", capacity: 4, pricePerNightNonMember: 3580, pricePerNightMember: 1800, description: "4 bed room with 1 bathroom. 2 rooms with 2 beds and each room has a tv and AC.", imageUrl: null },
-        { roomName: "212", capacity: 4, pricePerNightNonMember: 3580, pricePerNightMember: 1800, description: "4 bed room with 1 bathroom. 2 rooms with 2 beds and each room has a tv and AC.", imageUrl: null },
-        { roomName: "101", capacity: 3, pricePerNightNonMember: 2700, pricePerNightMember: 1350, description: "3 bed room with 1 bathroom. 1 room with 3 beds and a tv and AC.", imageUrl: null },
-        { roomName: "102", capacity: 2, pricePerNightNonMember: 1800, pricePerNightMember: 900, description: "2 bed room with 1 bathroom. 1 room with 2 beds and a tv and AC.", imageUrl: null },
-        { roomName: "202", capacity: 2, pricePerNightNonMember: 1800, pricePerNightMember: 900, description: "2 bed room with 1 bathroom. 1 room with 2 beds and a tv and AC.", imageUrl: null },
-        { roomName: "203", capacity: 2, pricePerNightNonMember: 1800, pricePerNightMember: 900, description: "2 bed room with 1 bathroom. 1 room with 2 beds and a tv and AC.", imageUrl: null },
-        { roomName: "204", capacity: 2, pricePerNightNonMember: 1800, pricePerNightMember: 900, description: "2 bed room with 1 bathroom. 1 room with 2 beds and a tv and AC.", imageUrl: null },
-        { roomName: "205", capacity: 2, pricePerNightNonMember: 1800, pricePerNightMember: 900, description: "2 bed room with 1 bathroom. 1 room with 2 beds and a tv and AC.", imageUrl: null },
-        { roomName: "206", capacity: 2, pricePerNightNonMember: 1800, pricePerNightMember: 900, description: "2 bed room with 1 bathroom. 1 room with 2 beds and a tv and AC.", imageUrl: null },
-        { roomName: "207", capacity: 2, pricePerNightNonMember: 1800, pricePerNightMember: 900, description: "2 bed room with 1 bathroom. 1 room with 2 beds and a tv and AC.", imageUrl: null },
-        { roomName: "208", capacity: 2, pricePerNightNonMember: 1800, pricePerNightMember: 900, description: "2 bed room with 1 bathroom. 1 room with 2 beds and a tv and AC.", imageUrl: null },
-        { roomName: "209", capacity: 2, pricePerNightNonMember: 1800, pricePerNightMember: 900, description: "2 bed room with 1 bathroom. 1 room with 2 beds and a tv and AC.", imageUrl: null },
-        { roomName: "210", capacity: 2, pricePerNightNonMember: 1800, pricePerNightMember: 900, description: "2 bed room with 1 bathroom. 1 room with 2 beds and a tv and AC.", imageUrl: null },
-        { roomName: "211", capacity: 2, pricePerNightNonMember: 1800, pricePerNightMember: 900, description: "2 bed room with 1 bathroom. 1 room with 2 beds and a tv and AC.", imageUrl: null },
-        { roomName: "307", capacity: 2, pricePerNightNonMember: 1800, pricePerNightMember: 900, description: "2 bed room with 1 bathroom. 1 room with 2 beds and a tv and AC.", imageUrl: null },
-        { roomName: "308", capacity: 2, pricePerNightNonMember: 1800, pricePerNightMember: 900, description: "2 bed room with 1 bathroom. 1 room with 2 beds and a tv and AC.", imageUrl: null },
+        { roomName: "CR", capacity: 10, pricePerNightNonmember: "7000.00", pricePerNightMember: "4000.00", description: "Conference Room, double AC, large bathroom", imageUrl: null },
+        { roomName: "201", capacity: 4, pricePerNightNonmember: "3580.00", pricePerNightMember: "1800.00", description: "4 bed room with 1 bathroom. 2 rooms with 2 beds and each room has a tv and AC.", imageUrl: null },
+        { roomName: "212", capacity: 4, pricePerNightNonmember: "3580.00", pricePerNightMember: "1800.00", description: "4 bed room with 1 bathroom. 2 rooms with 2 beds and each room has a tv and AC.", imageUrl: null },
+        { roomName: "101", capacity: 3, pricePerNightNonmember: "2700.00", pricePerNightMember: "1350.00", description: "3 bed room with 1 bathroom. 1 room with 3 beds and a tv and AC.", imageUrl: null },
+        { roomName: "102", capacity: 2, pricePerNightNonmember: "1800.00", pricePerNightMember: "900.00", description: "2 bed room with 1 bathroom. 1 room with 2 beds and a tv and AC.", imageUrl: null },
+        { roomName: "202", capacity: 2, pricePerNightNonmember: "1800.00", pricePerNightMember: "900.00", description: "2 bed room with 1 bathroom. 1 room with 2 beds and a tv and AC.", imageUrl: null },
+        { roomName: "203", capacity: 2, pricePerNightNonmember: "1800.00", pricePerNightMember: "900.00", description: "2 bed room with 1 bathroom. 1 room with 2 beds and a tv and AC.", imageUrl: null },
+        { roomName: "204", capacity: 2, pricePerNightNonmember: "1800.00", pricePerNightMember: "900.00", description: "2 bed room with 1 bathroom. 1 room with 2 beds and a tv and AC.", imageUrl: null },
+        { roomName: "205", capacity: 2, pricePerNightNonmember: "1800.00", pricePerNightMember: "900.00", description: "2 bed room with 1 bathroom. 1 room with 2 beds and a tv and AC.", imageUrl: null },
+        { roomName: "206", capacity: 2, pricePerNightNonmember: "1800.00", pricePerNightMember: "900.00", description: "2 bed room with 1 bathroom. 1 room with 2 beds and a tv and AC.", imageUrl: null },
+        { roomName: "207", capacity: 2, pricePerNightNonmember: "1800.00", pricePerNightMember: "900.00", description: "2 bed room with 1 bathroom. 1 room with 2 beds and a tv and AC.", imageUrl: null },
+        { roomName: "208", capacity: 2, pricePerNightNonmember: "1800.00", pricePerNightMember: "900.00", description: "2 bed room with 1 bathroom. 1 room with 2 beds and a tv and AC.", imageUrl: null },
+        { roomName: "209", capacity: 2, pricePerNightNonmember: "1800.00", pricePerNightMember: "900.00", description: "2 bed room with 1 bathroom. 1 room with 2 beds and a tv and AC.", imageUrl: null },
+        { roomName: "210", capacity: 2, pricePerNightNonmember: "1800.00", pricePerNightMember: "900.00", description: "2 bed room with 1 bathroom. 1 room with 2 beds and a tv and AC.", imageUrl: null },
+        { roomName: "211", capacity: 2, pricePerNightNonmember: "1800.00", pricePerNightMember: "900.00", description: "2 bed room with 1 bathroom. 1 room with 2 beds and a tv and AC.", imageUrl: null },
+        { roomName: "307", capacity: 2, pricePerNightNonmember: "1800.00", pricePerNightMember: "900.00", description: "2 bed room with 1 bathroom. 1 room with 2 beds and a tv and AC.", imageUrl: null },
+        { roomName: "308", capacity: 2, pricePerNightNonmember: "1800.00", pricePerNightMember: "900.00", description: "2 bed room with 1 bathroom. 1 room with 2 beds and a tv and AC.", imageUrl: null },
 
     ]).returning();
     console.log(rooms.length, " num Rooms seeded");
@@ -66,6 +66,19 @@ async function seed() {
         .returning();
     console.log(bookings.length, " num Bookings seeded");
 
+    // Reservations
+    const reservations = await db
+        .insert(reservationsTable)
+        .values([
+            { bookingId: bookings[0].bookingId, roomId: rooms[11].roomId, priceAtBooking: "80.00", reservationDate: "2026-07-01" },
+            { bookingId: bookings[1].bookingId, roomId: rooms[12].roomId, priceAtBooking: "200.00", reservationDate: "2026-08-10" },
+            { bookingId: bookings[2].bookingId, roomId: rooms[13].roomId, priceAtBooking: "300.00", reservationDate: "2026-09-01" },
+            { bookingId: bookings[3].bookingId, roomId: rooms[14].roomId, priceAtBooking: "150.00", reservationDate: "2026-09-01" },
+        ])
+        .returning();
+
+    console.log(reservations.length, " num Reservations seeded");
+
     // Admins
     await db.insert(adminsTable).values([
         { username: "admin", passwordHash: "CHANGE_ME_use_a_real_bcrypt_hash_here" },
@@ -76,3 +89,5 @@ async function seed() {
     console.log("Seeding complete");
 
 }
+
+seed().catch((err) => { console.error("Seeding failed:", err); process.exit(1) });
