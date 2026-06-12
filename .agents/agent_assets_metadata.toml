@@ -1,8 +1,0 @@
-uploads = []
-generated = []
-
-[[outputs]]
-id = "DH0UOMtv4t_tpJVfHiUeq"
-uri = "file://README.md"
-type = "text"
-title = "README — Room Booking Service"
