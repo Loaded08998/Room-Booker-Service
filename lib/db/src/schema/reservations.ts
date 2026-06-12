@@ -1,4 +1,4 @@
-import { pgTable, serial, integer, numeric } from "drizzle-orm/pg-core";
+import { pgTable, serial, integer, numeric, date } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { bookingsTable } from "./bookings";
@@ -9,6 +9,7 @@ export const reservationsTable = pgTable("reservations", {
   bookingId: integer("booking_id").notNull().references(() => bookingsTable.bookingId),
   roomId: integer("room_id").notNull().references(() => roomsTable.roomId),
   priceAtBooking: numeric("price_at_booking", { precision: 10, scale: 2 }).notNull(),
+  reservationDate: date("reservation_date", { mode: "string" }).notNull(),
 });
 
 export const insertReservationSchema = createInsertSchema(reservationsTable).omit({ reservationId: true });
